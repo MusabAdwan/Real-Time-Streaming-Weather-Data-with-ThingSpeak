@@ -1,68 +1,100 @@
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.streaming.Trigger
-import okhttp3.{OkHttpClient, Request}
+import org.apache.spark.sql.{SparkSession, functions => F}
+import org.apache.spark.sql.functions._
+import scalaj.http._
+import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.receiver.Receiver
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import java.util.Properties
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.client.RequestBuilding._
-import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorMaterializer
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
-import org.apache.kafka.common.serialization.StringSerializer
 
-import scala.concurrent.duration._
-import scala.concurrent.Future
-import scala.util.{Failure, Success}
 object ContinuousApiToKafka {
-  implicit val system: ActorSystem = ActorSystem("ApiToKafkaSystem")
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
-  import system.dispatcher // for execution context
-
   def main(args: Array[String]): Unit = {
-    val channelId = "12397" // Replace with your channel ID
-    val apiUrl = s"https://api.thingspeak.com/channels/12397/feeds.json"
-    val kafkaTopic = "thingspeak" // Replace with your Kafka topic
-    val kafkaBroker = "localhost:9092" // Replace with your Kafka broker address
+    val spark = SparkSession.builder()
+      .appName("ThingSpeak Stream")
+      .master("local[*]")
+      .getOrCreate()
+    import spark.implicits._
+    val ssc = new StreamingContext(spark.sparkContext, Seconds(15))
 
-    // Create Kafka producer
-    val producerProps = new java.util.Properties()
-    producerProps.put("bootstrap.servers", kafkaBroker)
-    producerProps.put("key.serializer", classOf[StringSerializer].getName)
-    producerProps.put("value.serializer", classOf[StringSerializer].getName)
+    // ThingSpeak channel ID and API endpoint
+    val channelId = "12397"
+    val apiUrl = s"https://api.thingspeak.com/channels/$channelId/feeds.json"
 
-    val producer = new KafkaProducer[String, String](producerProps)
+    // Kafka producer properties
+    val kafkaProps = new Properties()
+    kafkaProps.put("bootstrap.servers", "localhost:9092")
+    kafkaProps.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+    kafkaProps.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
 
-    // Method to fetch data from API and send to Kafka
-    def fetchDataAndSendToKafka(): Unit = {
-      val responseFuture: Future[akka.http.scaladsl.model.HttpResponse] = Http().singleRequest(Get(apiUrl))
+    // Kafka producer
+    val producer = new KafkaProducer[String, String](kafkaProps)
 
-      responseFuture.flatMap { response =>
-        Unmarshal(response.entity).to[String] // Assuming the response is in String format
-      }.onComplete {
-        case Success(data) =>
-          // Send data to Kafka
-          val record = new ProducerRecord[String, String](kafkaTopic, data)
-          producer.send(record)
+    // Kafka topic
+    val kafkaTopic = "thingspeak"
 
-          println(s"Data sent to Kafka topic $kafkaTopic: $data")
+    // fetch data from ThingSpeak
+    def fetchData(): String = {
+      val response = Http(apiUrl).asString
+      response.body
+    }
 
-        case Failure(exception) =>
-          println(s"Failed to fetch data: ${exception.getMessage}")
+    // stream that fetches data every 15 seconds
+    val dataStream = ssc.receiverStream(new Receiver[String](org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK_2) {
+      override def onStart(): Unit = {
+        while (!isStopped) {
+          val data = fetchData()
+          store(data)
+          Thread.sleep(15000) // Sleep for 15 seconds
+        }
+      }
+
+      override def onStop(): Unit = {}
+    })
+
+
+    dataStream.foreachRDD { rdd =>
+      if (!rdd.isEmpty()) {
+        val jsonData = rdd.collect().mkString("\n")
+        if (jsonData.nonEmpty) {
+          // Read JSON data into DataFrame
+          val df = spark.read.json(Seq(jsonData).toDS())
+
+          // Explode feeds array to flatten the data
+          val explodedDF = df.withColumn("feeds", F.explode($"feeds"))
+
+          // Select the desired fields from dataframe
+          val resultDF = explodedDF.select(
+            $"channel.name".as("channel_name"),
+            $"feeds.created_at".as("timestamp"),
+            $"feeds.field1".as("Wind Direction (North = 0 degrees)"),
+            $"feeds.field2".as("Wind Speed (mph)"),
+            $"feeds.field3".as("Humidity %"),
+            $"feeds.field4".as("Temperature F"),
+            $"feeds.field5".as("Rain (Inches/minute)"),
+            $"feeds.field6".as("Pressure (\\\"Hg)"),
+            $"feeds.field7".as("Power Level (V)"),
+            $"feeds.field8".as("Light Intensity")
+          ).withColumn("timestamp", F.to_timestamp($"timestamp"))
+
+          // Send each row to Kafka
+          resultDF.collect().foreach { row =>
+            val key = row.getAs[String]("channel_name")
+            val value = row.mkString(",") // Convert the row to a string
+            producer.send(new ProducerRecord[String, String](kafkaTopic, key, value))
+          }
+
+          //val rowCount = resultDF.count()
+         // println(s"Number of rows processed: $rowCount")
+
+          //resultDF.show(truncate = false)
+        }
       }
     }
 
-    // Schedule the API call every 100 minutes
-    system.scheduler.scheduleWithFixedDelay(initialDelay = 0.seconds, delay = 100.minutes)(() => fetchDataAndSendToKafka())
+    // Start the streaming context
+    ssc.start()
+    ssc.awaitTermination()
 
-    // Ensure the application keeps running
-    println("Scheduled API calls every 100 minutes. Press ENTER to exit.")
-    scala.io.StdIn.readLine()
-
-    // Clean up
-    producer.close()
-    system.terminate()
+    // Close the producer after the streaming context is terminated
+    producer.close() //
   }
-
-
 }
