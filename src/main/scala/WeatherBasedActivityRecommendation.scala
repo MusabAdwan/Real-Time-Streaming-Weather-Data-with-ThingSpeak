@@ -72,16 +72,16 @@ object WeatherBasedActivityRecommendation {
 
 
     weatherData = weatherData.withColumn("activity_preference",
-      when(col("Temperature (F)") > 75 && col("Rain (Inches/minute)") <= 0.2 && col("Wind Speed (mph)") < 15 && col("Light Intensity") > 500, "Running")
+      when(col("Temperature (F)") > 75 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 15 && col("Light Intensity") > 500, "Running")
         .when(col("Temperature (F)") <= 75 && col("Temperature (F)") >= 60 && col("Wind Speed (mph)") < 10 && col("Rain (Inches/minute)") === 0 && col("Light Intensity") > 300, "Picnicking")
-        .when(col("Wind Speed (mph)") > 15 && col("Rain (Inches/minute)")<= 0.2 && col("Temperature (F)") <= 50 && col("Light Intensity") > 200, "Walking")
+        .when(col("Wind Speed (mph)") > 15 && col("Rain (Inches/minute)")<= 0.4 && col("Temperature (F)") <= 50 && col("Light Intensity") > 200, "Walking")
         .when(col("Rain (Inches/minute)") > 0.5, "Stay Home")
         .when(col("Temperature (F)") <= 45 || col("Wind Speed (mph)") > 25 || col("Light Intensity") < 100, "Stay Home")
-        .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 85 && col("Rain (Inches/minute)") <= 0.2 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 500, "Reading Outdoors")
-        .when(col("Temperature (F)") >= 65 && col("Temperature (F)") <= 80 && col("Rain (Inches/minute)") <= 0.2 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 300, "Barbecue")
+        .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 85 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 500, "Reading Outdoors")
+        .when(col("Temperature (F)") >= 65 && col("Temperature (F)") <= 80 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 300, "Barbecue")
         
         .when(col("Temperature (F)") >= 70 && col("Temperature (F)") <= 85 && col("Wind Speed (mph)") < 5 && col("Rain (Inches/minute)") === 0 && col("Light Intensity") > 500, "Tennis")
-        .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 75 && col("Rain (Inches/minute)") <= 0.2 && col("Wind Speed (mph)") < 5 && col("Light Intensity") > 200, "Yoga Outdoors")
+        .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 75 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 5 && col("Light Intensity") > 200, "Yoga Outdoors")
         .otherwise("you are free")
     )
 
