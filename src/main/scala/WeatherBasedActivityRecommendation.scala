@@ -76,7 +76,7 @@ object WeatherBasedActivityRecommendation {
         .when(col("Temperature (F)") <= 75 && col("Temperature (F)") >= 60 && col("Wind Speed (mph)") < 10 && col("Rain (Inches/minute)") === 0 && col("Light Intensity") > 300, "Picnicking")
         .when(col("Wind Speed (mph)") > 15 && col("Rain (Inches/minute)") === 0 && col("Temperature (F)") <= 50 && col("Light Intensity") > 200, "Walking")
         .when(col("Rain (Inches/minute)") > 0.2, "Stay Home")
-        .when(col("Temperature (F)") <= 50 || col("Wind Speed (mph)") > 25 || col("Light Intensity") < 100, "Stay Home")
+        .when(col("Temperature (F)") <= 30 || col("Wind Speed (mph)") > 25 || col("Light Intensity") < 100, "Stay Home")
         .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 85 && col("Rain (Inches/minute)") === 0 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 500, "Reading Outdoors")
         .when(col("Temperature (F)") >= 65 && col("Temperature (F)") <= 80 && col("Rain (Inches/minute)") === 0 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 300, "Barbecue")
         .when(col("Wind Speed (mph)") >= 10 && col("Wind Speed (mph)") <= 20 && col("Rain (Inches/minute)") === 0 && col("Light Intensity") > 250, "Kite Flying")
