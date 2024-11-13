@@ -13,11 +13,18 @@ import org.apache.spark.ml.feature.{MinMaxScaler, StandardScaler, StringIndexer,
 import org.apache.spark.ml.classification.RandomForestClassifier
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.sql.functions._
-import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
+import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel, ParamGridBuilder}
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.Row
+import org.apache.log4j.BasicConfigurator
+import org.apache.log4j.varia.NullAppender
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.ml.tuning.CrossValidatorModel
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.types.DoubleType
 import java.io.File
 case class WeatherData(station: String,
                        timestamp: String,
@@ -30,28 +37,7 @@ case class WeatherData(station: String,
                        Power_Level: Double
                        , Light_Intensity: Double)
 object KafkaConsumer {
-  def deleteFile(filePath: String): Boolean = {
-    val file = new File(filePath)
-    if (file.exists()) {
-      try {
-        // If it's a directory, delete all files and subdirectories inside it first
-        if (file.isDirectory) {
-          file.listFiles().foreach(file => deleteFile(file.getPath)) // Recursively delete files in the directory
-        }
-        // Now delete the directory or file
-        file.delete()
-        println(s"File or directory at $filePath deleted successfully.")
-        true
-      } catch {
-        case e: Exception =>
-          println(s"Failed to delete file at $filePath. Error: ${e.getMessage}")
-          false
-      }
-    } else {
-      println(s"File or directory at $filePath does not exist.")
-      false
-    }
-  }
+
   def main(args: Array[String]): Unit = {
     val nullAppender = new NullAppender
     BasicConfigurator.configure(nullAppender)
@@ -62,12 +48,15 @@ object KafkaConsumer {
     val spark = SparkSession.builder.config(conf).getOrCreate()
     import spark.implicits._
 
+
+    import spark.implicits._
     // Load the saved model
     val modelPath = "models/WeatherActivityModel"
-    val loadedModel = PipelineModel.load(modelPath)
+
+    val model = CrossValidatorModel.load(modelPath)
 
 
-    val ssc = new StreamingContext(conf, Seconds(15))
+ val ssc = new StreamingContext(conf, Seconds(15))
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> "localhost:9092",
@@ -131,7 +120,7 @@ object KafkaConsumer {
           val featureDF = assembler.transform(updatedDF)
 
           // Make predictions using the loaded model
-          val predictions = loadedModel.transform(featureDF)
+          val predictions = model.transform(featureDF)
 
           // Show predictions
           predictions.select("features", "prediction").show(truncate = false)
