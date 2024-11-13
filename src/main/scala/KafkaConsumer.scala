@@ -1,5 +1,6 @@
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
+import org.apache.spark.sql.Encoders
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.kafka010._
@@ -15,6 +16,8 @@ import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, Multiclass
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.tuning.{CrossValidator, CrossValidatorModel, ParamGridBuilder}
 import org.apache.spark.ml.PipelineModel
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.Row
@@ -28,35 +31,37 @@ import org.apache.spark.sql.types.DoubleType
 import java.io.File
 case class WeatherData(station: String,
                        timestamp: String,
-                       Wind_Direction: Double,
+                       Wind_Direction: Int,
                        Wind_Speed: Double,
-                       Humidity: Double,
+                       Humidity: Int,
                        Temperature: Double,
                        Rain: Double,
                        Pressure: Double,
-                       Power_Level: Double
-                       , Light_Intensity: Double)
+                       Power_Level: Double,
+                       Light_Intensity: Int)
 object KafkaConsumer {
 
   def main(args: Array[String]): Unit = {
     val nullAppender = new NullAppender
     BasicConfigurator.configure(nullAppender)
-    val conf = new SparkConf()
-      .setMaster("local[*]")
-      .setAppName("NetworkWordCount")
+    // Initialize Spark session and configuration
 
-    val spark = SparkSession.builder.config(conf).getOrCreate()
+    val spark = SparkSession.builder()
+      .appName("NetworkWordCount")
+      .master("local[*]")                // Run Spark locally using all available cores
+     // .config("spark.executor.memory", "4g")  // Set executor memory
+      //.config("spark.driver.memory", "4g")    // Set driver memory
+      .getOrCreate()
+
     import spark.implicits._
 
-
-    import spark.implicits._
-    // Load the saved model
+       // Load the saved model
     val modelPath = "models/WeatherActivityModel"
 
     val model = CrossValidatorModel.load(modelPath)
 
 
- val ssc = new StreamingContext(conf, Seconds(15))
+ val ssc = new StreamingContext(spark.sparkContext, Seconds(15))
 
     val kafkaParams = Map[String, Object](
       "bootstrap.servers" -> "localhost:9092",
@@ -72,29 +77,89 @@ object KafkaConsumer {
       PreferConsistent,
       Subscribe[String, String](topics, kafkaParams)
     )
-
+//    // Define the schema of the incoming weather data
+//    val weatherDataSchema = new StructType()
+//      .add("station", StringType, true)
+//      .add("timestamp", StringType, true)
+//      .add("Wind_Direction", DoubleType, true)
+//      .add("Wind_Speed", DoubleType, true)
+//      .add("Humidity", DoubleType, true)
+//      .add("Temperature", DoubleType, true)
+//      .add("Rain", DoubleType, true)
+//      .add("Pressure", DoubleType, true)
+//      .add("Power_Level", DoubleType, true)
+//      .add("Light_Intensity", DoubleType, true)
+//
+//    val streamDataDF = stream.map { record =>
+//      val data = record.value().split(",")
+//      if (data.length == 10) {
+//        // Create WeatherData object
+//        WeatherData(
+//          station = data(0),
+//          timestamp = data(1),
+//          Wind_Direction = data(2).toInt,
+//          Wind_Speed = data(3).toDouble,
+//          Humidity = data(4).toInt,
+//          Temperature = data(5).toDouble,
+//          Rain = data(6).toDouble,
+//          Pressure = data(7).toDouble,
+//          Power_Level = data(8).toDouble,
+//          Light_Intensity = data(9).toInt
+//        )
+//      } else {
+//        null
+//      }
+//    }.filter(_ != null)  // Filter out any null data
+//
+//    // Convert to DataFrame
+//    val weatherDF = streamDataDF.toDF()
+//    stream.foreachRDD { rdd =>
+//      rdd.foreach { record =>
+//        val data = record.value().split(",")
+//        if (data.length == 10) {
+//          val weatherData = WeatherData(
+//            station = data(0),
+//            timestamp = data(1),
+//            Wind_Direction = data(2).toInt,
+//            Wind_Speed = data(3).toDouble,
+//            Humidity = data(4).toInt,
+//            Temperature = data(5).toDouble,
+//            Rain = data(6).toDouble,
+//            Pressure = data(7).toDouble,
+//            Power_Level = data(8).toDouble,
+//            Light_Intensity = data(9).toInt
+//          )
     stream.foreachRDD { rdd =>
-      rdd.foreach { record =>
-        val data = record.value().split(",")
-        if (data.length == 10) {
-          val weatherData = WeatherData(
+      // Filter and map records to WeatherData
+      val weatherRecords = rdd.collect {
+        case record if record.value().split(",").length == 10 =>
+          val data = record.value().split(",")
+          WeatherData(
             station = data(0),
             timestamp = data(1),
-            Wind_Direction = data(2).toDouble,
+            Wind_Direction = data(2).toInt,
             Wind_Speed = data(3).toDouble,
-            Humidity = data(4).toDouble,
+            Humidity = data(4).toInt,
             Temperature = data(5).toDouble,
             Rain = data(6).toDouble,
             Pressure = data(7).toDouble,
             Power_Level = data(8).toDouble,
-            Light_Intensity = data(9).toDouble
+            Light_Intensity = data(9).toInt
           )
+         // Thread.sleep(15000) // Sleep for 15 seconds
+      }
+      Thread.sleep(15000) // Sleep for 15 seconds
+      println(weatherRecords)
+      val weatherDF = spark.createDataset(weatherRecords)(Encoders.product[WeatherData])
 
+      // Show the DataFrame (or perform further actions)
+      weatherDF.show()
           // Convert to DataFrame
-          val weatherDF = Seq(weatherData).toDF()
+        //  var weatherDF = Seq.empty[WeatherData].toDF()
+         // val weatherDF = Seq(weatherData).toDF()
 
           // Apply activity preference logic
-          val updatedDF = weatherDF.withColumn("activity_preference",
+          val activity_preference = weatherDF.withColumn("activity_preference",
             when(col("Temperature") > 75 && col("Rain") === 0 && col("Wind_Speed") < 15 && col("Light_Intensity") > 500, "Running")
               .when(col("Temperature") <= 75 && col("Temperature") >= 60 && col("Wind_Speed") < 10 && col("Rain") === 0 && col("Light_Intensity") > 300, "Picnicking")
               .when(col("Wind_Speed") > 15 && col("Rain") === 0 && col("Temperature") <= 50 && col("Light_Intensity") > 200, "Walking")
@@ -109,19 +174,28 @@ object KafkaConsumer {
           )
 
           // Here you can further process updatedDF, like saving it or displaying it
-          updatedDF.show() // Example action to display the DataFrame
+      activity_preference.show() // Example action to display the DataFrame
+      val weatherDFRenamed = activity_preference
+        .withColumnRenamed("Wind_Direction", "Wind Direction ")
+        .withColumnRenamed("Wind_Speed", "Wind Speed (mph)")
+        .withColumnRenamed("Humidity", "% Humidity")
+        .withColumnRenamed("Temperature", "Temperature (F)")
+        .withColumnRenamed("Rain", "Rain (Inches/minute)")
+        .withColumnRenamed("Pressure", "Pressure (Hg)")
+        .withColumnRenamed("Light_Intensity", "Light Intensity")
+      val updatedDF = weatherDFRenamed.drop("station","timestamp","Power_Level","activity_preference")
           // Make predictions
           // Assemble features from relevant columns
           val assembler = new VectorAssembler()
-            .setInputCols(Array("Wind_Direction", "Wind_Speed", "Humidity", "Temperature", "Rain", "Pressure", "Light_Intensity"))
+            .setInputCols(Array("Wind Direction ", "Wind Speed (mph)", "% Humidity", "Temperature (F)", "Rain (Inches/minute)", "Pressure (Hg)", "Light Intensity"))
             .setOutputCol("features")
 
           // Transform the DataFrame to add features
           val featureDF = assembler.transform(updatedDF)
-
+           featureDF.show()
           // Make predictions using the loaded model
           val predictions = model.transform(featureDF)
-
+       predictions.show()
           // Show predictions
           predictions.select("features", "prediction").show(truncate = false)
           // Map numeric predictions back to activity names
@@ -142,18 +216,17 @@ object KafkaConsumer {
             udf((prediction: Double) => activityMap.getOrElse(prediction, "Stay Home")).apply(col("prediction")))
           // Select relevant columns for the final output: Including original weather data and the recommended activity
           val finalOutput = predictedActivities
-            .select("Wind_Direction ", "Wind_Speed", "Humidity", "Temperature", "Rain",
-              "Pressure", "Light_Intensity", "recommended_activity")
+            .select("Wind Direction ", "Wind Speed (mph)", "% Humidity", "Temperature (F)", "Rain (Inches/minute)",
+              "Pressure (Hg)", "Light Intensity", "recommended_activity")
           finalOutput.show(10 , truncate = false)
           finalOutput.groupBy(col("recommended_activity")).count().show()
 
 
           Thread.sleep(15000) // Sleep for 15 seconds
           // Process the weatherData object as needed
-          println(weatherData)
+
         }
-      }
-    }
+
     // Await termination of the query
     ssc.start()
     ssc.awaitTermination()

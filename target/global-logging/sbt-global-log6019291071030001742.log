@@ -1,0 +1,93 @@
+[debug] > Exec(early(addDefaultCommands), None, None)
+[debug] > Exec(addDefaultCommands, None, None)
+[debug] > Exec(early(initialize), None, None)
+[debug] > Exec(initialize, None, None)
+[debug] > Exec(early(addPluginSbtFile="""C:\Users\Dell\AppData\Local\Temp\idea.sbt"""), None, None)
+[debug] > Exec(addPluginSbtFile="""C:\Users\Dell\AppData\Local\Temp\idea.sbt""", None, None)
+[debug] > Exec(boot, None, None)
+[debug] > Exec(writeSbtVersion, None, None)
+[debug] > Exec(reload, None, None)
+[debug] > Exec(sbtStashOnFailure, None, None)
+[debug] > Exec(onFailure loadFailed, None, None)
+[debug] > Exec(loadp, None, None)
+[info] welcome to sbt 1.10.4 (Oracle Corporation Java 1.8.0_421)
+[debug] Load.defaultLoad until apply took 154.0424ms
+[debug]           Load.loadUnit: plugins took 278.812ms
+[debug]           Load.loadUnit: defsScala took 0.4391ms
+[debug] [Loading] Scanning directory C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer\project
+[debug]             Load.loadUnit: mkEval took 15.6958ms
+[debug] [Loading] Found non-root projects 
+[debug] [Loading] Done in C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer\project, returning: ()
+[debug] deducing auto plugins based on known facts Set(Atom(sbt.plugins.CorePlugin)) and clauses Clauses(Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.ScriptedPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.SbtPlugin),Set(Atom(sbt.ScriptedPlugin)))
+[debug] Clause(Atom(sbt.plugins.SemanticdbPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JUnitXmlReportPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.MiniDependencyTreePlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.plugins.IvyPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.SemanticdbPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.JUnitXmlReportPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.Giter8TemplatePlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.MiniDependencyTreePlugin))))
+[debug]   :: deduced result: Matched(sbt.plugins.CorePlugin,sbt.plugins.Giter8TemplatePlugin,sbt.plugins.IvyPlugin,sbt.plugins.JvmPlugin,sbt.plugins.MiniDependencyTreePlugin,sbt.plugins.JUnitXmlReportPlugin,sbt.plugins.SemanticdbPlugin)
+[debug] Plugins.deducer#function took 38.8664 ms
+[info] loading settings for project consumer-build from idea.sbt ...
+[debug]               Load.resolveProject(consumer-build) took 176.4768ms
+[debug]             Load.loadTransitive: finalizeProject(Project(id consumer-build, base: C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer\project, plugins: List(<none>))) took 249.7839ms
+[debug] [Loading] Done in C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer\project, returning: (consumer-build)
+[debug]           Load.loadUnit: loadedProjectsRaw took 6046.0322ms
+[debug]           Load.loadUnit: cleanEvalClasses took 15.845ms
+[debug]         Load.loadUnit(file:/C:/Users/Dell/IdeaProjects/Graphex_pageRank/Consumer/project/, ...) took 6349.5421ms
+[debug]       Load.apply: load took 6548.1944ms
+[debug]       Load.apply: resolveProjects took 10.9849ms
+[debug]       Load.apply: finalTransforms took 182.4173ms
+[debug]       Load.apply: config.delegates took 12.4182ms
+[debug]       Load.apply: Def.make(settings)... took 742.6485ms
+[debug]       Load.apply: structureIndex took 195.552ms
+[debug]       Load.apply: mkStreams took 2.6382ms
+[info] loading project definition from C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer\project
+[debug] Running task... Cancel: Signal, check cycles: false, forcegc: true
+[debug]     Load.loadUnit: plugins took 11299.3387ms
+[debug]     Load.loadUnit: defsScala took 0.0039ms
+[debug] [Loading] Scanning directory C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer
+[debug]       Load.loadUnit: mkEval took 0.371ms
+[debug] [Loading] Found root project root w/ remaining 
+[debug] deducing auto plugins based on known facts Set(Atom(sbt.plugins.CorePlugin)) and clauses Clauses(Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.ScriptedPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.SbtPlugin),Set(Atom(sbt.ScriptedPlugin)))
+[debug] Clause(Atom(sbt.plugins.SemanticdbPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JUnitXmlReportPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.MiniDependencyTreePlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(org.jetbrains.sbt.StructurePlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(org.jetbrains.sbt.IdeaShellPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.IvyPlugin)))
+[debug] Clause(Atom(sbt.plugins.IvyPlugin),Set(Atom(sbt.plugins.JvmPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.SemanticdbPlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.JUnitXmlReportPlugin)))
+[debug] Clause(Atom(sbt.plugins.CorePlugin),Set(Atom(sbt.plugins.Giter8TemplatePlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(sbt.plugins.MiniDependencyTreePlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(org.jetbrains.sbt.StructurePlugin)))
+[debug] Clause(Atom(sbt.plugins.JvmPlugin),Set(Atom(org.jetbrains.sbt.IdeaShellPlugin))))
+[debug]   :: deduced result: Matched(sbt.plugins.CorePlugin,sbt.plugins.Giter8TemplatePlugin,sbt.plugins.IvyPlugin,sbt.plugins.JvmPlugin,sbt.plugins.SemanticdbPlugin,sbt.plugins.JUnitXmlReportPlugin,org.jetbrains.sbt.IdeaShellPlugin,org.jetbrains.sbt.StructurePlugin,sbt.plugins.MiniDependencyTreePlugin)
+[debug] Plugins.deducer#function took 4.1016 ms
+[info] loading settings for project root from build.sbt ...
+[debug]         Load.resolveProject(root) took 55.1763ms
+[debug]       Load.loadTransitive: finalizeProject(Project(id root, base: C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer, plugins: List(<none>))) took 60.8526ms
+[debug] [Loading] Done in C:\Users\Dell\IdeaProjects\Graphex_pageRank\Consumer, returning: (root)
+[debug]     Load.loadUnit: loadedProjectsRaw took 5203.2907ms
+[debug]     Load.loadUnit: cleanEvalClasses took 20.3894ms
+[debug]   Load.loadUnit(file:/C:/Users/Dell/IdeaProjects/Graphex_pageRank/Consumer/, ...) took 16525.0147ms
+[debug] Load.apply: load took 16553.8134ms
+[debug] Load.apply: resolveProjects took 0.8529ms
+[debug] Load.apply: finalTransforms took 151.3088ms
+[debug] Load.apply: config.delegates took 0.4237ms
+[debug] Load.apply: Def.make(settings)... took 253.6442ms
+[debug] Load.apply: structureIndex took 40.9363ms
+[debug] Load.apply: mkStreams took 0.0029ms
+[info] set current project to Consumer (in build file:/C:/Users/Dell/IdeaProjects/Graphex_pageRank/Consumer/)
+[debug] > Exec(sbtPopOnFailure, None, None)
+[debug] > Exec(resumeFromFailure, None, None)
+[debug] > Exec(notifyUsersAboutShell, None, None)
+[debug] > Exec(iflast shell, None, None)
+[debug] > Exec(idea-shell, None, None)
