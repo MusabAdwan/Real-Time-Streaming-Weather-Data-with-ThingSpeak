@@ -1,14 +1,13 @@
 
 version := "1.0"
-name := "Consumer"
-scalaVersion := "2.12.10" // Use the appropriate Scala version
+
+scalaVersion := "2.12.15" // Use the appropriate Scala version
 
 libraryDependencies ++= {
   Seq(
-    "org.apache.spark" %% "spark-core" % "3.3.2",
-    "org.apache.spark" %% "spark-sql" % "3.3.2",
+    "org.apache.spark" %% "spark-core" % "3.3.0",
+    "org.apache.spark" %% "spark-sql" % "3.3.0",
     "org.scalaj" %% "scalaj-http" % "2.4.2",
-   // "org.json4s" %% "json4s-native" % "4.0.0",
     "org.apache.spark" %% "spark-mllib" % "3.3.2",
     "org.apache.spark" %% "spark-streaming" % "3.3.2",
     "org.mongodb.spark" %% "mongo-spark-connector" % "3.0.1",
@@ -22,8 +21,8 @@ libraryDependencies ++= {
     "com.typesafe.akka" %% "akka-actor-typed" % "2.6.18")
 }
 //libraryDependencies += "org.apache.spark" %% "spark-core" % "3.3.2" // Use the appropriate Spark version
-//lazy val root = (project in file("."))
-//  .settings(
-//    name := "Consumer"
-//  )
+lazy val root = (project in file("."))
+  .settings(
+   name := "Consumer"
+  )
 resolvers += "MongoDB Repository" at "https://repo.mongodb.org/maven2/"
