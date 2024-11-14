@@ -18,7 +18,11 @@ libraryDependencies ++= {
     //"org.apache.kafka" %% "kafka" % "3.1.1", // Kafka client for Scala
     "com.typesafe.akka" %% "akka-stream" % "2.6.18", // Akka Streams
     "com.typesafe.akka" %% "akka-http" % "10.2.6", // Akka HTTP for making API calls
-    "com.typesafe.akka" %% "akka-actor-typed" % "2.6.18")
+    "com.typesafe.akka" %% "akka-actor-typed" % "2.6.18",
+    "com.typesafe.akka" %% "akka-http-spray-json" % "10.2.6",
+   // "org.apache.spark" %% "spark-streaming-kafka-0-10" % "3.4.0",
+    //"org.apache.kafka" %% "kafka" % "3.0.0",
+    )
 }
 //libraryDependencies += "org.apache.spark" %% "spark-core" % "3.3.2" // Use the appropriate Spark version
 lazy val root = (project in file("."))
