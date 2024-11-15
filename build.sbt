@@ -11,8 +11,8 @@ libraryDependencies ++= {
     "org.apache.spark" %% "spark-mllib" % "3.3.2",
     "org.apache.spark" %% "spark-streaming" % "3.3.2",
     "org.mongodb.spark" %% "mongo-spark-connector" % "3.0.1",
-    "org.apache.spark" %% "spark-streaming-kafka-0-10" % "3.1.1",
-    // "org.apache.spark" %% "spark-sql-kafka-0-10" % "3.3.2",
+    "org.apache.spark" %% "spark-streaming-kafka-0-10" % "3.3.2",
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % "3.3.2",
     "org.apache.kafka" % "kafka-clients" % "3.4.0" ,// Adjust Kafka version as needed
     "com.squareup.okhttp3" % "okhttp" % "4.9.2",
     //"org.apache.kafka" %% "kafka" % "3.1.1", // Kafka client for Scala
