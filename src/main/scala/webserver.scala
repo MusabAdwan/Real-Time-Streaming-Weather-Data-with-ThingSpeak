@@ -32,22 +32,23 @@ object webserver extends DefaultJsonProtocol {
       path("") {
         get {
           // Serve the HTML page with input field and data display
-          val htmlContent =
-            s"""
+
+val htmlContent =
+  s"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Scala Dynamic Data Display</title>
   <style>
-  .data-container {
+    /* CSS for data layout */
+    .data-container {
     display: grid;
     grid-template-columns: repeat(8, 1fr); /* 8 equal-width columns */
     grid-gap: 10px; /* Space between items */
     max-width: 1000px;
     margin: 20px auto;
   }
-
   .title, .value {
     text-align: center;
   }
@@ -55,40 +56,114 @@ object webserver extends DefaultJsonProtocol {
   .title {
     font-weight: bold;
   }
-
-  /* Ensure titles and values are properly spaced */
-  .data-container p {
+    .data-container p {
     margin: 5px 0;
   }
-</style>
+    canvas {
+      max-width: 800px;
+      margin: 20px auto;
+    }
+  </style>
+  <!-- Chart.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    // Fetch updated data from server every 1 second
-    async function fetchData() {
-      const response = await fetch('/data'); // Fetch the data from the /data route
-      const result = await response.json();  // Parse the JSON response
+    // Set up global variables for each chart
+    let charts = {};
 
-      // Assuming result.submittedData is a string (e.g., "100,200,300,5,7,8,90,10")
-      const dataArray = result.submittedData ? result.submittedData.split(',') : [];  // Split string into an array
+    // Initialize the charts for each data type
+    function initializeCharts() {
+      const ctxWindSpeed = document.getElementById('windSpeedChart').getContext('2d');
+      charts.windSpeed = createChart(ctxWindSpeed, 'Wind Speed (mph)');
 
-      // Function to populate values in the respective elements
-      document.getElementById('windDirection').textContent = dataArray[0] || 'No data submitted yet';
-      document.getElementById('windSpeed').textContent = dataArray[1] || 'No data submitted yet';
-      document.getElementById('humidity').textContent = dataArray[2] || 'No data submitted yet';
-      document.getElementById('temperature').textContent = dataArray[3] || 'No data submitted yet';
-      document.getElementById('rain').textContent = dataArray[4] || 'No data submitted yet';
-      document.getElementById('pressure').textContent = dataArray[5] || 'No data submitted yet';
-      document.getElementById('lightIntensity').textContent = dataArray[6] || 'No data submitted yet';
-      document.getElementById('recommendedActivity').textContent = dataArray[7] || 'No data submitted yet';
+      const ctxTemperature = document.getElementById('temperatureChart').getContext('2d');
+      charts.temperature = createChart(ctxTemperature, 'Temperature (F)');
+
+      // Add more charts as needed
     }
 
-    // Fetch data every 1 second
-    setInterval(fetchData, 1000);
+    // Function to create a new line chart
+    function createChart(ctx, label) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [], // Timestamp labels will be added here
+          datasets: [{
+            label: label,
+            data: [], // Data points will be added here
+            fill: false,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            tension: 0.1
+          }]
+        },
+        options: {
+          scales: {
+            x: { display: true, title: { display: true, text: 'Time' }},
+            y: { display: true, title: { display: true, text: label }}
+          }
+        }
+      });
+    }
+
+    // Fetch updated data from server every second
+    async function fetchData() {
+      const response = await fetch('/data');
+      const result = await response.json();
+      const dataArray = result.submittedData ? result.submittedData.split(',') : [];
+
+      // Update each displayed value and add data to charts
+      updateDisplayedData(dataArray);
+      updateCharts(dataArray);
+    }
+
+    // Display data in HTML
+    function updateDisplayedData(dataArray) {
+      document.getElementById('windDirection').textContent = dataArray[0] || 'No data';
+      document.getElementById('windSpeed').textContent = dataArray[1] || 'No data';
+      document.getElementById('humidity').textContent = dataArray[2] || 'No data';
+      document.getElementById('temperature').textContent = dataArray[3] || 'No data';
+      document.getElementById('rain').textContent = dataArray[4] || 'No data';
+      document.getElementById('pressure').textContent = dataArray[5] || 'No data';
+      document.getElementById('lightIntensity').textContent = dataArray[6] || 'No data';
+      document.getElementById('recommendedActivity').textContent = dataArray[7] || 'No data';
+    }
+
+    // Update the charts with new data
+    function updateCharts(dataArray) {
+      const timestamp = new Date().toLocaleTimeString();
+
+      // Add data points to each chart if available
+      if (charts.windSpeed && dataArray[1]) {
+        charts.windSpeed.data.labels.push(timestamp);
+        charts.windSpeed.data.datasets[0].data.push(dataArray[1]);
+        charts.windSpeed.update();
+      }
+      if (charts.temperature && dataArray[3]) {
+        charts.temperature.data.labels.push(timestamp);
+        charts.temperature.data.datasets[0].data.push(dataArray[3]);
+        charts.temperature.update();
+      }
+
+      // Add similar updates for other charts if needed
+
+      // Limit data points to the last 20 for readability
+      Object.values(charts).forEach(chart => {
+        if (chart.data.labels.length > 20) {
+          chart.data.labels.shift();
+          chart.data.datasets[0].data.shift();
+        }
+      });
+    }
+
+    // Initialize charts and set up data fetching
+    document.addEventListener('DOMContentLoaded', () => {
+      initializeCharts();
+      setInterval(fetchData, 1000);
+    });
   </script>
 </head>
-<body onload="fetchData()">
+<body>
   <h1>Weather Recommendation Activity System</h1>
 
-  <!-- Container for the dynamic data display -->
  <div class="data-container">
   <!-- First Row: Titles -->
   <p class="title"><strong>Wind Direction</strong></p>
@@ -113,8 +188,13 @@ object webserver extends DefaultJsonProtocol {
   <p class="value" id="recommendedActivity">Loading...</p>
 </div>
 
+  <!-- Canvas elements for charts -->
+  <canvas id="windSpeedChart"></canvas>
+  <canvas id="temperatureChart"></canvas>
+  <!-- Add more canvases if needed -->
 </body>
 </html>
+\"\"\"
 
 
             """
