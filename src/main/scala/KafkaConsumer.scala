@@ -1,4 +1,4 @@
-
+//import the necessary libraries (log4j,spark.sql,spark ml,util,http,akka stream,actor,json, concurrent
 import org.apache.log4j.BasicConfigurator
 import org.apache.log4j.varia.NullAppender
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -12,8 +12,8 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import spray.json._
-
 import scala.concurrent.ExecutionContextExecutor
+
 object KafkaConsumer  extends DefaultJsonProtocol{
 
   def main(args: Array[String]): Unit = {
@@ -21,37 +21,36 @@ object KafkaConsumer  extends DefaultJsonProtocol{
     implicit val receivedDataFormat = jsonFormat1(ReceivedData)
     val nullAppender = new NullAppender
     BasicConfigurator.configure(nullAppender)
-    // Initialize Spark session and configuration
-
 
     implicit val system: ActorSystem = ActorSystem("app-b-system")
     implicit val materializer: ActorMaterializer = ActorMaterializer()
     implicit val executionContext: ExecutionContextExecutor = system.dispatcher
-    //  target URL for the main server
+    //  target URL for the main server to send the output to
     val mainServerUrl = "http://localhost:8081/receive-data"
+    // Initialize Spark session and configuration
     val spark = SparkSession.builder()
       .appName("NetworkWordCount")
       .master("local[*]") // Run Spark locally using all available cores
       .getOrCreate()
 
-    import spark.implicits._
-    // Load the saved model
-    val modelPath = "models/WeatherActivityModel"
-    val model = CrossValidatorModel.load(modelPath)
 
-    // Define the schema for the CSV data
-    val schema = StructType(Array(
-      StructField("Station", StringType, true),
-      StructField("Timestamp", StringType, true),
-      StructField("Wind Direction ", FloatType, true),
-      StructField("Wind Speed (mph)", FloatType, true),
-      StructField("% Humidity", FloatType, true),
-      StructField("Temperature (F)", FloatType, true),
-      StructField("Rain (Inches/minute)", FloatType, true),
-      StructField("Pressure (Hg)", FloatType, true),
-      StructField("Power Level", FloatType, true),
-      StructField("Light Intensity", FloatType, true)
-    ))
+    // Load the saved model
+    val modelPath = "models/WeatherActivityModel"//path of the saved model
+    val model = CrossValidatorModel.load(modelPath) // Load the saved model
+
+//    // schema for the CSV data
+//    val schema = StructType(Array(
+//      StructField("Station", StringType, true),
+//      StructField("created_at", StringType, true),
+//      StructField("Wind Direction ", FloatType, true),
+//      StructField("Wind Speed (mph)", FloatType, true),
+//      StructField("% Humidity", FloatType, true),
+//      StructField("Temperature (F)", FloatType, true),
+//      StructField("Rain (Inches/minute)", FloatType, true),
+//      StructField("Pressure (Hg)", FloatType, true),
+//      StructField("Power Level", FloatType, true),
+//      StructField("Light Intensity", FloatType, true)
+//    ))
 
     // Read the data from Kafka
     val rawStream = spark.readStream
@@ -68,7 +67,7 @@ object KafkaConsumer  extends DefaultJsonProtocol{
     // Parse the CSV data (split by commas)
     val parsedData = kafkaData.select(
       F.split(F.col("message"), ",").getItem(0).alias("Station"),
-      F.split(F.col("message"), ",").getItem(1).alias("Timestamp"),
+      F.split(F.col("message"), ",").getItem(1).alias("created_at"),
       F.split(F.col("message"), ",").getItem(2).cast(FloatType).alias("Wind Direction "),
       F.split(F.col("message"), ",").getItem(3).cast(FloatType).alias("Wind Speed (mph)"),
       F.split(F.col("message"), ",").getItem(4).cast(FloatType).alias("% Humidity"),
@@ -78,10 +77,8 @@ object KafkaConsumer  extends DefaultJsonProtocol{
       F.split(F.col("message"), ",").getItem(8).cast(FloatType).alias("Power Level"),
       F.split(F.col("message"), ",").getItem(9).cast(FloatType).alias("Light Intensity")
     )
-
-    val updatedDF = parsedData.drop("Station", "Timestamp", "Power Level")
     // Make predictions using the loaded model
-    val predictions = model.transform(updatedDF)
+    val predictions = model.transform(parsedData)
 
     // Map numeric predictions back to activity names
     val activityMap = Map(
@@ -91,23 +88,37 @@ object KafkaConsumer  extends DefaultJsonProtocol{
       3.0 -> "Picnicking", // activity: 3 -> Picnicking
       4.0 -> "Reading Outdoors", // activity: 4 -> Reading Outdoors
       5.0 -> "Barbecue", // activity: 5 -> Barbecue
-      6.0 -> "Kite Flying", // activity: 6 -> Kite Flying
-      7.0 -> "Tennis", // activity: 7 -> Tennis
-      8.0 -> "Yoga Outdoors", //activity : 8 -> Yoga Outdoors
-      9.0 -> "you are free" // activity: 9 -> No specific recommendation, free to choose
+      6.0 -> "Tennis", // activity: 6 -> Kite Flying
+      7.0 -> "Yoga Outdoors", // activity: 7 -> Tennis
+      8.0 -> "you are free", //activity : 8 -> Yoga Outdoors
     )
     val predictedActivities = predictions.withColumn("recommended_activity",
       udf((prediction: Double) => activityMap.getOrElse(prediction, "Stay Home")).apply(col("prediction")))
     // Select relevant columns for the final output: Including original weather data and the recommended activity
     val finalOutput = predictedActivities
-      .select("Wind Direction ", "Wind Speed (mph)", "% Humidity", "Temperature (F)", "Rain (Inches/minute)",
-        "Pressure (Hg)", "Light Intensity", "recommended_activity")
+      .select(
+        parsedData("created_at"),
+        col("Wind Direction "),
+        col("Wind Speed (mph)"),
+        col("% Humidity"),
+        col("Temperature (F)"),
+        col("Rain (Inches/minute)"),
+        col("Pressure (Hg)"),
+        col("Light Intensity"),
+        col("recommended_activity")
+      )
 
     // Output the processed data to the console (for debugging purposes)
     val processedStream1 = finalOutput.writeStream
       .outputMode("append")
       .format("console") // This just outputs the data to the console for debugging
       .start()
+
+//    val mongoOutput = finalOutput.writeStream
+//      .outputMode("append")
+//      .format("mongo") // Use the MongoDB format
+//      .option("checkpointLocation", "path/to/checkpoint/dir") // Specify checkpoint location
+//      .start()
 
     val  processedStream2 = finalOutput.writeStream
       .outputMode("append") // or "update" depending on your requirement
@@ -144,6 +155,7 @@ object KafkaConsumer  extends DefaultJsonProtocol{
 
     // Wait for termination of both queries
     processedStream1.awaitTermination()
+    //mongoOutput.awaitTermination()
     processedStream2.awaitTermination()
   }
 }
