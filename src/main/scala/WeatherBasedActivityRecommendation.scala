@@ -74,14 +74,13 @@ object WeatherBasedActivityRecommendation {
     weatherData = weatherData.withColumn("activity_preference",
       when(col("Temperature (F)") > 75 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 15 && col("Light Intensity") > 500, "Running")
         .when(col("Temperature (F)") <= 75 && col("Temperature (F)") >= 60 && col("Wind Speed (mph)") < 10 && col("Rain (Inches/minute)") === 0 && col("Light Intensity") > 300, "Picnicking")
-        .when(col("Wind Speed (mph)") > 15 && col("Rain (Inches/minute)")<= 0.4 && col("Temperature (F)") <= 50 && col("Light Intensity") > 200, "Walking")
+        .when(col("Wind Speed (mph)") > 15 && col("Rain (Inches/minute)") <= 0.4 && col("Temperature (F)") <= 50 && col("Light Intensity") > 200, "Walking")
         .when(col("Rain (Inches/minute)") > 0.5, "Stay Home")
         .when(col("Temperature (F)") <= 45 || col("Wind Speed (mph)") > 25 || col("Light Intensity") < 100, "Stay Home")
         .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 85 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 500, "Reading Outdoors")
         .when(col("Temperature (F)") >= 65 && col("Temperature (F)") <= 80 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 10 && col("Light Intensity") > 300, "Barbecue")
-        
-        .when(col("Temperature (F)") >= 70 && col("Temperature (F)") <= 85 && col("Wind Speed (mph)") < 5 && col("Rain (Inches/minute)") === 0 && col("Light Intensity") > 500, "Tennis")
-        .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 75 && col("Rain (Inches/minute)") <= 0.4 && col("Wind Speed (mph)") < 5 && col("Light Intensity") > 200, "Yoga Outdoors")
+        .when(col("Temperature (F)") >= 70 && col("Temperature (F)") <= 85 && col("Wind Speed (mph)") < 5 && col("Rain (Inches/minute)") <= 0.4 && col("Light Intensity") > 500, "Tennis")
+        .when(col("Temperature (F)") >= 60 && col("Temperature (F)") <= 75 && col("Rain (Inches/minute)") <= 0.2 && col("Wind Speed (mph)") < 5 && col("Light Intensity") > 200, "Yoga Outdoors")
         .otherwise("you are free")
     )
 
@@ -148,7 +147,6 @@ object WeatherBasedActivityRecommendation {
       3.0 -> "Picnicking",      // Example: 3 -> Picnicking
       4.0 -> "Reading Outdoors",// Example: 4 -> Reading Outdoors
       5.0 -> "Barbecue",        // Example: 5 -> Barbecue
-     
       6.0 -> "Tennis",          // Example: 6 -> Tennis
       7.0 -> "Yoga Outdoors",   // Example: 7 -> Yoga Outdoors
       8.0 -> "you are free"     // Example: 8 -> No specific recommendation, free to choose
@@ -157,11 +155,11 @@ object WeatherBasedActivityRecommendation {
     predictions.show(10,truncate = false)
     // Apply the activity mapping to the predictions
     val predictedActivities = predictions.withColumn("recommended_activity",
-      udf((prediction: Double) => activityMap.getOrElse(prediction, "Stay Home")).apply(col("prediction")))
+      udf((prediction: Double) => activityMap.getOrElse(prediction, "you are free")).apply(col("prediction")))
 
     // Select relevant columns for the final output: Including original weather data and the recommended activity
     val finalOutput = predictedActivities
-      .select("Wind Direction ", "Wind Speed (mph)", "% Humidity", "Temperature (F)", "Rain (Inches/minute)",
+      .select("created_at","Wind Direction ", "Wind Speed (mph)", "% Humidity", "Temperature (F)", "Rain (Inches/minute)",
         "Pressure (Hg)", "Light Intensity", "recommended_activity")
     finalOutput.show(10 , truncate = false)
     finalOutput.groupBy(col("recommended_activity")).count().show()
@@ -177,7 +175,7 @@ object WeatherBasedActivityRecommendation {
     // Save the trained model to disk
     val modelPath = "models/WeatherActivityModel"
     cvModel.write.overwrite().save(modelPath)
-
+    println(s"Model saved to: $modelPath")
     // Evaluation Metrics
     val accuracy = evaluator.evaluate(predictions)
     println(s"Test Accuracy = ${(accuracy * 100).formatted("%.2f")}%")
