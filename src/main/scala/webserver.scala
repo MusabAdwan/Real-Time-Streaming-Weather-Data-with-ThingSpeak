@@ -44,7 +44,7 @@ val htmlContent =
     /* CSS for data layout */
     .data-container {
     display: grid;
-    grid-template-columns: repeat(8, 1fr); /* 8 equal-width columns */
+    grid-template-columns: repeat(9, 1fr); /* 9 equal-width columns */
     grid-gap: 10px; /* Space between items */
     max-width: 1000px;
     margin: 20px auto;
@@ -117,14 +117,15 @@ val htmlContent =
 
     // Display data in HTML
     function updateDisplayedData(dataArray) {
-      document.getElementById('windDirection').textContent = dataArray[0] || 'No data';
-      document.getElementById('windSpeed').textContent = dataArray[1] || 'No data';
-      document.getElementById('humidity').textContent = dataArray[2] || 'No data';
-      document.getElementById('temperature').textContent = dataArray[3] || 'No data';
-      document.getElementById('rain').textContent = dataArray[4] || 'No data';
-      document.getElementById('pressure').textContent = dataArray[5] || 'No data';
-      document.getElementById('lightIntensity').textContent = dataArray[6] || 'No data';
-      document.getElementById('recommendedActivity').textContent = dataArray[7] || 'No data';
+      document.getElementById('Time').textContent = dataArray[0] || 'No data';
+      document.getElementById('windDirection').textContent = dataArray[1] || 'No data';
+      document.getElementById('windSpeed').textContent = dataArray[2] || 'No data';
+      document.getElementById('humidity').textContent = dataArray[3] || 'No data';
+      document.getElementById('temperature').textContent = dataArray[4] || 'No data';
+      document.getElementById('rain').textContent = dataArray[5] || 'No data';
+      document.getElementById('pressure').textContent = dataArray[6] || 'No data';
+      document.getElementById('lightIntensity').textContent = dataArray[7] || 'No data';
+      document.getElementById('recommendedActivity').textContent = dataArray[8] || 'No data';
     }
 
     // Update the charts with new data
@@ -132,14 +133,14 @@ val htmlContent =
       const timestamp = new Date().toLocaleTimeString();
 
       // Add data points to each chart if available
-      if (charts.windSpeed && dataArray[1]) {
+      if (charts.windSpeed && dataArray[2]) {
         charts.windSpeed.data.labels.push(timestamp);
-        charts.windSpeed.data.datasets[0].data.push(dataArray[1]);
+        charts.windSpeed.data.datasets[0].data.push(dataArray[2]);
         charts.windSpeed.update();
       }
-      if (charts.temperature && dataArray[3]) {
+      if (charts.temperature && dataArray[4]) {
         charts.temperature.data.labels.push(timestamp);
-        charts.temperature.data.datasets[0].data.push(dataArray[3]);
+        charts.temperature.data.datasets[0].data.push(dataArray[4]);
         charts.temperature.update();
       }
 
@@ -166,6 +167,8 @@ val htmlContent =
 
  <div class="data-container">
   <!-- First Row: Titles -->
+    <p class="title"><strong>Time</strong></p>
+
   <p class="title"><strong>Wind Direction</strong></p>
   <p class="title"><strong>Wind Speed (mph)</strong></p>
   <p class="title"><strong>% Humidity</strong></p>
@@ -177,6 +180,8 @@ val htmlContent =
   <p class="title"><strong>Recommended Activity</strong></p>
 
   <!-- Second Row: Values -->
+    <p class="value" id="Time">Loading...</p>
+
   <p class="value" id="windDirection">Loading...</p>
   <p class="value" id="windSpeed">Loading...</p>
   <p class="value" id="humidity">Loading...</p>
