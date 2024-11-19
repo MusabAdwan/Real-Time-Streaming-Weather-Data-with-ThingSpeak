@@ -60,8 +60,8 @@ val htmlContent =
     margin: 5px 0;
   }
     canvas {
-      max-width: 800px;
-      margin: 20px auto;
+      max-width: 400px;
+      margin: 60px auto;
     }
   </style>
   <!-- Chart.js library -->
@@ -88,7 +88,7 @@ val htmlContent =
       charts.pressure = createChart(ctxPressure, 'pressure ');
 
       const ctxLightIntensity = document.getElementById('lightIntensityChart').getContext('2d');
-      charts.rain = createChart(ctxLightIntensity, 'lightIntensity ');
+      charts.lightIntensity = createChart(ctxLightIntensity, 'lightIntensity ');
 
     }
 
@@ -224,13 +224,20 @@ val htmlContent =
 </div>
 
   <!-- Canvas elements for charts -->
-  <canvas id="windSpeedChart"></canvas>
-  <canvas id="temperatureChart"></canvas>
-  <canvas id="humidityChart"></canvas>
-  <canvas id="rainChart"></canvas>
-  <canvas id="pressureChart"></canvas>
-  <canvas id="lightIntensityChart"></canvas>
+  <div class="data-container">
+  <canvas id="windSpeedChart" width="400" height="100"></canvas>
+  <canvas id="temperatureChart" width="400" height="100"></canvas>
+  </div>
+    <div class="data-container">
 
+  <canvas id="humidityChart" width="400" height="100"></canvas>
+  <canvas id="rainChart" width="400" height="100"></canvas>
+   </div>
+     <div class="data-container">
+
+  <canvas id="pressureChart" width="400" height="100"></canvas>
+  <canvas id="lightIntensityChart" width="400" height="100"></canvas>
+ </div>
 
   <!-- Add more canvases if needed -->
 </body>
