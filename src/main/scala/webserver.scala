@@ -78,7 +78,18 @@ val htmlContent =
       const ctxTemperature = document.getElementById('temperatureChart').getContext('2d');
       charts.temperature = createChart(ctxTemperature, 'Temperature (F)');
 
-      // Add more charts as needed
+      const ctxHumidity = document.getElementById('humidityChart').getContext('2d');
+      charts.humidity = createChart(ctxHumidity, 'humidity ');
+
+      const ctxRain = document.getElementById('rainChart').getContext('2d');
+      charts.rain = createChart(ctxRain, 'rain ');
+
+      const ctxPressure = document.getElementById('pressureChart').getContext('2d');
+      charts.pressure = createChart(ctxPressure, 'pressure ');
+
+      const ctxLightIntensity = document.getElementById('lightIntensityChart').getContext('2d');
+      charts.rain = createChart(ctxLightIntensity, 'lightIntensity ');
+
     }
 
     // Function to create a new line chart
@@ -143,7 +154,26 @@ val htmlContent =
         charts.temperature.data.datasets[0].data.push(dataArray[4]);
         charts.temperature.update();
       }
-
+       if (charts.humidity && dataArray[3]) {
+        charts.humidity.data.labels.push(timestamp);
+        charts.humidity.data.datasets[0].data.push(dataArray[3]);
+        charts.humidity.update();
+      }
+      if (charts.rain && dataArray[5]) {
+        charts.rain.data.labels.push(timestamp);
+        charts.rain.data.datasets[0].data.push(dataArray[5]);
+        charts.rain.update();
+      }
+      if (charts.pressure && dataArray[6]) {
+        charts.pressure.data.labels.push(timestamp);
+        charts.pressure.data.datasets[0].data.push(dataArray[6]);
+        charts.pressure.update();
+      }
+      if (charts.lightIntensity && dataArray[7]) {
+        charts.lightIntensity.data.labels.push(timestamp);
+        charts.lightIntensity.data.datasets[0].data.push(dataArray[7]);
+        charts.lightIntensity.update();
+      }
       // Add similar updates for other charts if needed
 
       // Limit data points to the last 20 for readability
@@ -196,6 +226,12 @@ val htmlContent =
   <!-- Canvas elements for charts -->
   <canvas id="windSpeedChart"></canvas>
   <canvas id="temperatureChart"></canvas>
+  <canvas id="humidityChart"></canvas>
+  <canvas id="rainChart"></canvas>
+  <canvas id="pressureChart"></canvas>
+  <canvas id="lightIntensityChart"></canvas>
+
+
   <!-- Add more canvases if needed -->
 </body>
 </html>
