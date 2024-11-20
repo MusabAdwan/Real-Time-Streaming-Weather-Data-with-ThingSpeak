@@ -1,11 +1,11 @@
 // Import the necessary libraries and classes
 // (Spark SQL classes and functions, Scalaj HTTP, Spark Streaming,
-import org.apache.spark.sql.{SparkSession, functions => F}
+import org.apache.spark.sql.{DataFrame, SparkSession, functions => F}
 import scalaj.http._
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import org.apache.spark.streaming.receiver.Receiver// Import Receiver class
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}//Import Kafka Producer
-import java.util.Properties // Import Properties class for configuration
+import org.apache.spark.streaming.receiver.Receiver
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+import java.util.Properties
 
 // Defining an object for the application
 object ContinuousApiToKafka {
@@ -18,7 +18,7 @@ object ContinuousApiToKafka {
 
     import spark.implicits._// Import implicits for DataFrame operations
     // Creating a StreamingContext with a 15-second batch interval
-    val ssc = new StreamingContext(spark.sparkContext, Seconds(15))
+    val ssc = new StreamingContext(spark.sparkContext, Seconds(60))
 
     // ThingSpeak channel ID and API endpoint
     val channelId = "12397"
@@ -40,7 +40,8 @@ object ContinuousApiToKafka {
       val response = Http(apiUrl).asString // HTTP GET request to the API
       response.body // Return the response body
     }
-    // stream that fetches data every 15 seconds
+
+   // stream that fetches data every 15 seconds
     val dataStream = ssc.receiverStream(new Receiver[String](org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK_2) {
       override def onStart(): Unit = { // Start method for the receiver
         while (!isStopped) { // Continue fetching until receiver is stopped
@@ -73,8 +74,10 @@ object ContinuousApiToKafka {
             $"feeds.field8".as("Light Intensity")// Selecting light intensity
           ).withColumn("timestamp", F.to_timestamp($"timestamp")) // Converting string timestamp to TimestampType
 
+          val latestReadingDF = resultDF.orderBy($"timestamp".desc).limit(1)// take the last coming reading from the datatfram
+
           // Send each row to Kafka
-          resultDF.collect().foreach { row =>  // Collecting and iterating over each row in the DataFrame
+          latestReadingDF.collect().foreach { row =>  // Collecting and iterating over each row in the DataFrame
             val key = row.getAs[String]("channel_name") // Getting the channel name as the key
             val value = row.mkString(",") // Converting the entire row to a comma-separated string
             producer.send(new ProducerRecord[String, String](kafkaTopic, key, value))// Send the record to Kafka
