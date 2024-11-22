@@ -16,17 +16,44 @@ import spray.json._//JSON serialization and deserialization in Scala
 
 import scala.concurrent.ExecutionContextExecutor//managing execution contexts in concurrent programming
 import org.apache.spark.sql.streaming.Trigger//controlling the execution of streaming queries
+
+class CountMinSketch(width: Int, depth: Int) {
+  private val table = Array.fill(depth, width)(0)
+  private val hashSeeds = Array.fill(depth)(scala.util.Random.nextInt())
+
+  def add(value: String): Unit = {
+    for (i <- 0 until depth) {
+      val hash = (value.hashCode ^ hashSeeds(i)) % width
+      // Ensure the hash is non-negative
+      val index = if (hash < 0) hash + width else hash
+      table(i)(index) += 1
+    }
+  }
+
+  def count(value: String): Int = {
+    var minCount = Int.MaxValue
+    for (i <- 0 until depth) {
+      val hash = (value.hashCode ^ hashSeeds(i)) % width
+      // Ensure the hash is non-negative
+      val index = if (hash < 0) hash + width else hash
+      minCount = math.min(minCount, table(i)(index))
+    }
+    minCount
+  }
+}
+
 //object named KafkaConsumer
 object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows the object
+
   // to provide JSON serialization and deserialization functionality.
+  case class ReceivedData(data: String)//a case class  with a single field 'data' of type String.
   // Main method
+
   def main(args: Array[String]): Unit = {
-    case class ReceivedData(data: String)//a case class  with a single field 'data' of type String.
     //automatic conversion between JSON and the ReceivedData class
     implicit val receivedDataFormat = jsonFormat1(ReceivedData)
     val nullAppender = new NullAppender//instance of NullAppender from log4j, to discard all log messages.
     BasicConfigurator.configure(nullAppender)// Configure the log4j logging  to use the NullAppender to silence log output.
-
     // create an ActorSystem named "app-b-system" ,will manage the lifecycle of actors within the application.
     implicit val system: ActorSystem = ActorSystem("app-b-system")
     // It enables the execution of stream processing
@@ -50,7 +77,8 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
     // Load the saved model
     val modelPath = "models/WeatherActivityModel"//path of the saved model
     val model = CrossValidatorModel.load(modelPath) // Load the saved model
-
+    // Creating Count-Min Sketch instance
+    val cms = new CountMinSketch(width = 1000, depth = 5)
     // Function to read data from a specified Kafka topic.
   //  Parameters: - topic ,maxOffsetsPerTrigger,spark
     def readFromKafka(topic: String, maxOffsetsPerTrigger: Int, spark: SparkSession): DataFrame = {
@@ -103,8 +131,8 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
         udf((prediction: Double) => activityMap.getOrElse(prediction, "Stay Home")).apply(col("prediction")))
     }
     // Read data from the Kafka topic "thingspeak-data" with specified offsets.
-    val rawStream1 = readFromKafka("thingspeak-data", 1, spark)
-    val rawStream2 = readFromKafka("thingspeak-data", 10, spark)
+    val rawStream1 = readFromKafka("weather", 1, spark)
+    val rawStream2 = readFromKafka("weather", 10, spark)
 
     // Parse the raw Kafka data using the helper function
     val parsedData1 = parseKafkaData(rawStream1)
@@ -173,6 +201,12 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
         col("max_Pressure (Hg)"),
         col("max_Light Intensity")
       )
+
+    // Function to update CMS with activities
+    def updateCMS(activity: String): Unit = {
+      cms.add(activity)
+    }
+
     // Create a streaming DataFrame from finalOutput1 for processing.
     val processedStream1 = finalOutput1.writeStream
       .outputMode("append") // Set the output mode to "append"
@@ -212,7 +246,6 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
         val rowsAsString = batchDF.collect().map(_.mkString(", "))
         val resultString = rowsAsString.mkString("\n")// Combine all rows into a single string with each row on a new line.
 
-
         // Prepare JSON data by creating a ReceivedData object and converting it to JSON.
         val jsonData = ReceivedData(resultString).toJson.prettyPrint
         // Create an HTTP entity with the JSON data and specify the content type.
@@ -244,11 +277,37 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       }
       .trigger(Trigger.ProcessingTime("60 seconds"))         // Set the trigger for processing time to 60 seconds.
       .start()// Start the streaming query
-
+    // Write the streaming DataFrame and update the CMS
+    val processedStream3 = finalOutput1.writeStream
+      .foreachBatch { (batchDF: DataFrame, batchId: Long) =>
+        try {
+          if (batchDF.isEmpty) {
+            println(s"No data received in batch ID: $batchId")
+          } else {
+            println(s"Processing batch ID: $batchId with ${batchDF.count()} records.")
+            println(s"Contents of batch ID: $batchId")
+            batchDF.show(truncate = false) // Show the entire content of the batch
+            val activities = batchDF.select("recommended_activity").collect().map(_.getString(0))
+            activities.foreach(cms.add)
+            activities.distinct.foreach { activity =>
+              println(s"Activity: '$activity' has occurred approximately ${cms.count(activity)} times.")
+            }
+          }
+        } catch {
+          case e: Exception =>
+            println(s"Error processing batch ID: $batchId: ${e.getMessage}")
+            e.printStackTrace()
+        }
+        System.out.flush()
+      }
+      .trigger(Trigger.ProcessingTime("60 seconds"))
+      .start()
 
     // Wait for termination of queries
     processedStream1.awaitTermination()
     mongoOutput.awaitTermination()
     processedStream2.awaitTermination()
+    processedStream3.awaitTermination()
+
   }
 }
