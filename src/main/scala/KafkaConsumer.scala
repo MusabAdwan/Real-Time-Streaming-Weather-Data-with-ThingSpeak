@@ -13,7 +13,7 @@ import akka.http.scaladsl.Http// HTTP requests and handling responses
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer//required for materializing streams
 import spray.json._//JSON serialization and deserialization in Scala
-
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import scala.concurrent.ExecutionContextExecutor//managing execution contexts in concurrent programming
 import org.apache.spark.sql.streaming.Trigger//controlling the execution of streaming queries
 
@@ -44,11 +44,12 @@ class CountMinSketch(width: Int, depth: Int) {
 
 //object named KafkaConsumer
 object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows the object
-
+  case class ActivityCount(activity: String, count: Long)
+  implicit val activityCountFormat: RootJsonFormat[ActivityCount] = jsonFormat2(ActivityCount)
+//import JsonFormats._
   // to provide JSON serialization and deserialization functionality.
   case class ReceivedData(data: String)//a case class  with a single field 'data' of type String.
   // Main method
-
   def main(args: Array[String]): Unit = {
     //automatic conversion between JSON and the ReceivedData class
     implicit val receivedDataFormat = jsonFormat1(ReceivedData)
@@ -73,6 +74,7 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       .config("spark.mongodb.output.uri", "mongodb://localhost:27017/WeatherRecommendation.Grouped Readings")//mongodb storage
       .getOrCreate()//create the spark session
     spark.conf.set("spark.sql.legacy.timeParserPolicy", "LEGACY")
+    import spark.implicits._
 
     // Load the saved model
     val modelPath = "models/WeatherActivityModel"//path of the saved model
@@ -176,7 +178,7 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       // A sliding window of 5 minutes, sliding every 1 minute.
       // This allows for aggregating data over the last 5 minutes.
       .groupBy(
-        window(col("created_at"), "5 minutes", "1 minute"), // Define a sliding window
+        window(col("created_at"), "5 minutes", "5 minute"), // Define a sliding window
         col("recommended_activity") // Group by an additional column
       )
       .agg(
@@ -234,7 +236,7 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
         .foreachBatch{(df: DataFrame, epochId: Long) =>
             writeToMongoDB(df, epochId) } // Call the writeToMongoDB function
         // Set the trigger for processing time to 60 seconds.
-          .trigger(Trigger.ProcessingTime("60 seconds"))
+          .trigger(Trigger.ProcessingTime("600 seconds"))
           .start() // Start the streaming query
     // Create a streaming DataFrame from finalOutput1 for processing.
     // This stream will send data to a specified server in JSON format.
@@ -287,10 +289,41 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
             println(s"Processing batch ID: $batchId with ${batchDF.count()} records.")
             println(s"Contents of batch ID: $batchId")
             batchDF.show(truncate = false) // Show the entire content of the batch
+
+            // Collect activities and update the CMS
             val activities = batchDF.select("recommended_activity").collect().map(_.getString(0))
-            activities.foreach(cms.add)
-            activities.distinct.foreach { activity =>
-              println(s"Activity: '$activity' has occurred approximately ${cms.count(activity)} times.")
+
+            activities.foreach { activity =>
+              cms.add(activity) // Update the CMS for this activity
+              val count = cms.count(activity) // Get the current count for this activity
+
+              // Prepare the JSON data
+              val activityData = ActivityCount(activity, count)
+              val jsonData = activityData.toJson.prettyPrint // Convert to JSON string
+
+              // Create an HTTP entity with the JSON data
+              val requestEntity = HttpEntity(ContentTypes.`application/json`, jsonData)
+
+              // Prepare the HTTP POST request
+              val request = HttpRequest(
+                method = HttpMethods.POST,
+                uri = "http://localhost:8081/receive-data1", // Ensure this matches your server's endpoint
+                entity = requestEntity
+              )
+
+              // Execute the HTTP request asynchronously
+              val responseFuture = Http().singleRequest(request)
+
+              // Handle the response
+              responseFuture.onComplete {
+                case Success(response) =>
+                  println(s"Successfully sent data for activity: $activity, response: ${response.status}")
+                case Failure(exception) =>
+                  println(s"Failed to send data for activity: $activity, exception: ${exception.getMessage}")
+              }
+
+              // Logging the activity and its count
+              println(s"Activity: '$activity' has occurred approximately $count times.")
             }
           }
         } catch {
@@ -302,7 +335,6 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       }
       .trigger(Trigger.ProcessingTime("60 seconds"))
       .start()
-
     // Wait for termination of queries
     processedStream1.awaitTermination()
     mongoOutput.awaitTermination()
