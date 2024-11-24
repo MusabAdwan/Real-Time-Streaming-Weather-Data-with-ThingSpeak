@@ -56,7 +56,7 @@ val htmlContent =
     /* CSS for data layout */
     .data-container {
     display: grid;
-    grid-template-columns: repeat(16, 1fr); /* 16 equal-width columns */
+    grid-template-columns: repeat(18, 1fr); /* 18 equal-width columns */
     grid-gap: 10px; /* Space between items */
     max-width: 100%;
     margin: 20px auto;
@@ -160,10 +160,12 @@ val htmlContent =
       document.getElementById('Count').textContent = count || 'No data';
       document.getElementById('window_start').textContent = dataArray2[0] || 'No data';
       document.getElementById('window_end').textContent = dataArray2[1] || 'No data';
-      document.getElementById('avg_Temperature (F)').textContent = dataArray2[3] || 'No data';
-      document.getElementById('avg_% Humidity').textContent = dataArray2[4] || 'No data';
-      document.getElementById('max_Pressure (Hg)').textContent = dataArray2[5] || 'No data';
-      document.getElementById('max_Light Intensity').textContent = dataArray2[6] || 'No data';
+      document.getElementById('avg_Temperature (F)').textContent = dataArray2[2] || 'No data';
+      document.getElementById('avg_% Humidity').textContent = dataArray2[3] || 'No data';
+      document.getElementById('max_Pressure (Hg)').textContent = dataArray2[4] || 'No data';
+      document.getElementById('max_Light Intensity').textContent = dataArray2[5] || 'No data';
+      document.getElementById('voted recommended_activity').textContent = dataArray2[6] || 'No data';
+      document.getElementById('event_count').textContent = dataArray2[7] || 'No data';
 
     }
 
@@ -239,10 +241,11 @@ val htmlContent =
   <p class="title"><strong>window_start</strong></p>
   <p class="title"><strong>window_end</strong></p>
   <p class="title"><strong>avg_Temperature (F)</strong></p>
-    <p class="title"><strong>avg_% Humidity</strong></p>
+  <p class="title"><strong>avg_% Humidity</strong></p>
   <p class="title"><strong>max_Pressure (Hg)</strong></p>
   <p class="title"><strong>max_Light Intensity</strong></p>
-
+  <p class="title"><strong>voted recommended_activity</strong></p>
+  <p class="title"><strong>event_count</strong></p>
   <!-- Second Row: Values -->
   <p class="value" id="Time">Loading...</p>
   <p class="value" id="windDirection">Loading...</p>
@@ -257,9 +260,11 @@ val htmlContent =
   <p class="value" id="window_start">Loading...</p>
   <p class="value" id="window_end">Loading...</p>
   <p class="value" id="avg_Temperature (F)">Loading...</p>
-   <p class="value" id="avg_% Humidity">Loading...</p>
+  <p class="value" id="avg_% Humidity">Loading...</p>
   <p class="value" id="max_Pressure (Hg)">Loading...</p>
   <p class="value" id="max_Light Intensity">Loading...</p>
+  <p class="value" id="voted recommended_activity">Loading...</p>
+  <p class="value" id="event_count">Loading...</p>
 </div>
 
   <!-- Canvas elements for charts -->
