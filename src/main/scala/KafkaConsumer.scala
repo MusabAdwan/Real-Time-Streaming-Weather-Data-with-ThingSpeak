@@ -1,7 +1,8 @@
 //import the necessary libraries
 // (log4j,spark.sql,spark ml,util,http,akka stream,actor,json, concurrent
-import org.apache.log4j.BasicConfigurator//for configuring logging
-import org.apache.log4j.varia.NullAppender// a logging appender
+import org.apache.log4j.BasicConfigurator
+import org.apache.log4j.varia.NullAppender
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession, functions => F}//including DataFrame, SparkSession,
 // and functions (aliased as F) for data manipulation.
 import org.apache.spark.sql.functions.{col, _}//col for column selection
@@ -195,7 +196,7 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       // This allows for aggregating data over the last 5 minutes.
       .groupBy(
         window(col("created_at"), "5 minutes","5 minutes"), // Define a sliding window
-        //col("recommended_activity") // Group by an additional column
+        col("recommended_activity") // Group by an additional column
       )
       .agg(
         // Calculation of average temperature over the window.
@@ -216,10 +217,10 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
         col("avg_Temperature (F)"),
         col("avg_% Humidity"),
         col("max_Pressure (Hg)"),
-        col("max_Light Intensity")
+        col("max_Light Intensity"),
+        col("recommended_activity"),
+        col("event_count")
       )
-
-
     // Create a streaming DataFrame from finalOutput1 for processing.
     // This stream will send data to a specified server in JSON format.
     val  processedStream1 = finalOutput1.writeStream
