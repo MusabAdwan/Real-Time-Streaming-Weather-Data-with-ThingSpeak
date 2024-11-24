@@ -15,14 +15,17 @@ import akka.http.scaladsl.model.StatusCodes
 
 object webserver extends DefaultJsonProtocol {
   // JSON case classes and formats
-  case class DataResponse(serverData: String, submittedData: Option[String], submittedData2: Option[String], submittedData3: Option[Long])
+  case class DataResponse(serverData: String, submittedData: Option[String], submittedData2: Option[String], submittedData3: Option[Long],submittedData4: Option[String])
   case class ReceivedData(data: String)
+  case class ReceivedData2(data: String)
+
   case class ActivityCount(activity: String, count: Long)
 
   // Define JSON formats
-  implicit val serverDataFormat: RootJsonFormat[DataResponse] = jsonFormat4(DataResponse)
+  implicit val serverDataFormat: RootJsonFormat[DataResponse] = jsonFormat5(DataResponse)
   implicit val receivedDataFormat: RootJsonFormat[ReceivedData] = jsonFormat1(ReceivedData)
   implicit val activityCountFormat: RootJsonFormat[ActivityCount] = jsonFormat2(ActivityCount)
+  implicit val receivedDataFormat2: RootJsonFormat[ReceivedData2] = jsonFormat1(ReceivedData2)
 
 
   def main(args: Array[String]): Unit = {
@@ -34,6 +37,7 @@ object webserver extends DefaultJsonProtocol {
     val submittedData = new AtomicReference[Option[String]](None)
     var submittedData2  =new AtomicReference[Option[String]](None)// Using Option to hold the data
     var submittedData3  =new AtomicReference[Option[Long]](None)// Using Option to hold the data
+    var submittedData4  =new AtomicReference[Option[String]](None)// Using Option to hold the data
 
     // Define routes for HTML page, JSON data, and receiving data from App B
     val route =
@@ -52,9 +56,9 @@ val htmlContent =
     /* CSS for data layout */
     .data-container {
     display: grid;
-    grid-template-columns: repeat(10, 1fr); /* 11 equal-width columns */
+    grid-template-columns: repeat(16, 1fr); /* 16 equal-width columns */
     grid-gap: 10px; /* Space between items */
-    max-width: 1000px;
+    max-width: 100%;
     margin: 20px auto;
   }
   .title, .value {
@@ -73,7 +77,7 @@ val htmlContent =
     margin: 5px 0;
   }
     canvas {
-      max-width: 400px;
+      max-width: 550px;
       margin: 60px auto;
     }
   </style>
@@ -133,16 +137,17 @@ val htmlContent =
       const response = await fetch('/data');
       const result = await response.json();
       const dataArray = result.submittedData ? result.submittedData.split(',') : [];
-      const dataArray2 = result.submittedData2 ;
-      const dataArray3 = result.submittedData3 ;
+      const activity = result.submittedData2 ;
+      const count = result.submittedData3 ;
+      const dataArray2 = result.submittedData4 ? result.submittedData4.split(',') : [];
 
       // Update each displayed value and add data to charts
-      updateDisplayedData(dataArray,dataArray2,dataArray3);
+      updateDisplayedData(dataArray,count,dataArray2);
       updateCharts(dataArray);
     }
 
     // Display data in HTML
-    function updateDisplayedData(dataArray,dataArray2,dataArray3) {
+    function updateDisplayedData(dataArray,count,dataArray2) {
       document.getElementById('Time').textContent = dataArray[0] || 'No data';
       document.getElementById('windDirection').textContent = dataArray[1] || 'No data';
       document.getElementById('windSpeed').textContent = dataArray[2] || 'No data';
@@ -152,7 +157,13 @@ val htmlContent =
       document.getElementById('pressure').textContent = dataArray[6] || 'No data';
       document.getElementById('lightIntensity').textContent = dataArray[7] || 'No data';
       document.getElementById('recommendedActivity').textContent = dataArray[8] || 'No data';
-      document.getElementById('Count').textContent = dataArray3 || 'No data';
+      document.getElementById('Count').textContent = count || 'No data';
+      document.getElementById('window_start').textContent = dataArray2[0] || 'No data';
+      document.getElementById('window_end').textContent = dataArray2[1] || 'No data';
+      document.getElementById('avg_Temperature (F)').textContent = dataArray2[3] || 'No data';
+      document.getElementById('avg_% Humidity').textContent = dataArray2[4] || 'No data';
+      document.getElementById('max_Pressure (Hg)').textContent = dataArray2[5] || 'No data';
+      document.getElementById('max_Light Intensity').textContent = dataArray2[6] || 'No data';
 
     }
 
@@ -205,7 +216,7 @@ val htmlContent =
     // Initialize charts and set up data fetching
     document.addEventListener('DOMContentLoaded', () => {
       initializeCharts();
-      setInterval(fetchData, 60000);
+      setInterval(fetchData, 1000);
     });
   </script>
 </head>
@@ -214,8 +225,7 @@ val htmlContent =
 
  <div class="data-container">
   <!-- First Row: Titles -->
-    <p class="title"><strong>Time</strong></p>
-
+  <p class="title"><strong>Time</strong></p>
   <p class="title"><strong>Wind Direction</strong></p>
   <p class="title"><strong>Wind Speed (mph)</strong></p>
   <p class="title"><strong>% Humidity</strong></p>
@@ -226,38 +236,43 @@ val htmlContent =
   <p class="title"><strong>Light Intensity</strong></p>
   <p class="title"><strong>Recommended Activity</strong></p>
   <p class="title"><strong>Activity Count Appearance </strong></p>
-
+  <p class="title"><strong>window_start</strong></p>
+  <p class="title"><strong>window_end</strong></p>
+  <p class="title"><strong>avg_Temperature (F)</strong></p>
+    <p class="title"><strong>avg_% Humidity</strong></p>
+  <p class="title"><strong>max_Pressure (Hg)</strong></p>
+  <p class="title"><strong>max_Light Intensity</strong></p>
 
   <!-- Second Row: Values -->
-    <p class="value" id="Time">Loading...</p>
-
+  <p class="value" id="Time">Loading...</p>
   <p class="value" id="windDirection">Loading...</p>
   <p class="value" id="windSpeed">Loading...</p>
   <p class="value" id="humidity">Loading...</p>
   <p class="value" id="temperature">Loading...</p>
-
   <p class="value" id="rain">Loading...</p>
   <p class="value" id="pressure">Loading...</p>
   <p class="value" id="lightIntensity">Loading...</p>
   <p class="value" id="recommendedActivity">Loading...</p>
   <p class="value" id="Count">Loading...</p>
-
+  <p class="value" id="window_start">Loading...</p>
+  <p class="value" id="window_end">Loading...</p>
+  <p class="value" id="avg_Temperature (F)">Loading...</p>
+   <p class="value" id="avg_% Humidity">Loading...</p>
+  <p class="value" id="max_Pressure (Hg)">Loading...</p>
+  <p class="value" id="max_Light Intensity">Loading...</p>
 </div>
 
   <!-- Canvas elements for charts -->
   <div class="data-container">
-  <canvas id="windSpeedChart" width="400" height="100"></canvas>
-  <canvas id="temperatureChart" width="400" height="100"></canvas>
+  <canvas id="windSpeedChart" width="600" height="100"></canvas>
+  <canvas id="temperatureChart" width="600" height="100"></canvas>
+  <canvas id="humidityChart" width="600" height="100"></canvas>
   </div>
-    <div class="data-container">
 
-  <canvas id="humidityChart" width="400" height="100"></canvas>
-  <canvas id="rainChart" width="400" height="100"></canvas>
-   </div>
-     <div class="data-container">
-
-  <canvas id="pressureChart" width="400" height="100"></canvas>
-  <canvas id="lightIntensityChart" width="400" height="100"></canvas>
+   <div class="data-container">
+  <canvas id="rainChart" width="600" height="100"></canvas>
+  <canvas id="pressureChart" width="600" height="100"></canvas>
+  <canvas id="lightIntensityChart" width="600" height="100"></canvas>
  </div>
 
   <!-- Add more canvases if needed -->
@@ -273,7 +288,7 @@ val htmlContent =
         path("data") {
           get {
             // Respond with current server data and last submitted data
-            val response = DataResponse("Server is running", submittedData.get(),submittedData2.get(), submittedData3.get())
+            val response = DataResponse("Server is running", submittedData.get(),submittedData2.get(), submittedData3.get(),submittedData4.get())
             complete(response.toJson.prettyPrint)
           }
         } ~
@@ -306,6 +321,22 @@ val htmlContent =
                 case e: Exception =>
                   println(s"Error parsing JSON: ${e.getMessage}")
                   complete(StatusCodes.BadRequest, "Invalid JSON format")
+              }
+            }
+          }
+        }~
+        path("receive-data2") {
+          post {
+              entity(as[String]) { jsonData =>
+                try {
+                  val parsedData = jsonData.parseJson.convertTo[ReceivedData2]
+                  submittedData4.set(Some(parsedData.data))
+                  println(s"Received data2: ${parsedData.data}")
+                  complete(StatusCodes.OK)
+                } catch {
+                  case e: Exception =>
+                    println(s"Error parsing JSON: ${e.getMessage}")
+                    complete(StatusCodes.BadRequest, "Invalid JSON format")
               }
             }
           }
