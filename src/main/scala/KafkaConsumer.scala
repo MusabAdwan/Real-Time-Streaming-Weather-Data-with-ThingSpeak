@@ -73,14 +73,30 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       .master("local[*]") // Run Spark locally using all available
       .config("spark.mongodb.output.uri", "mongodb://localhost:27017/WeatherRecommendation.Grouped Readings")//mongodb storage
       .getOrCreate()//create the spark session
-    spark.conf.set("spark.sql.legacy.timeParserPolicy", "LEGACY")
-    import spark.implicits._
+   // spark.conf.set("spark.sql.legacy.timeParserPolicy", "LEGACY")
 
     // Load the saved model
     val modelPath = "models/WeatherActivityModel"//path of the saved model
     val model = CrossValidatorModel.load(modelPath) // Load the saved model
     // Creating Count-Min Sketch instance
     val cms = new CountMinSketch(width = 1000, depth = 5)
+    // Function to update CMS with activities
+    def updateCMS(activity: String): Unit = {
+      cms.add(activity)
+    }
+
+    // Function to write the DataFrame to MongoDB.
+    // Parameters- df, - epochId
+    def writeToMongoDB(df: DataFrame, epochId: Long): Unit = {
+      // MongoDB connection string and target database/collection.
+      val mongoURL = "mongodb://localhost:27017/WeatherRecommendation.Grouped Readings"
+      df.write  // Write the DataFrame to MongoDB
+        .format("mongo") // Specify the MongoDB format for writing.
+        .mode("append")// Append mode
+        .option("uri", mongoURL)// MongoDB connection URI.
+        .save()// Execute the write operation.
+      println(s"Batch $epochId written to MongoDB successfully.") // a confirmation message batch has been written.
+    }
     // Function to read data from a specified Kafka topic.
   //  Parameters: - topic ,maxOffsetsPerTrigger,spark
     def readFromKafka(topic: String, maxOffsetsPerTrigger: Int, spark: SparkSession): DataFrame = {
@@ -178,8 +194,8 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       // A sliding window of 5 minutes, sliding every 1 minute.
       // This allows for aggregating data over the last 5 minutes.
       .groupBy(
-        window(col("created_at"), "5 minutes", "5 minute"), // Define a sliding window
-        col("recommended_activity") // Group by an additional column
+        window(col("created_at"), "5 minutes","5 minutes"), // Define a sliding window
+        //col("recommended_activity") // Group by an additional column
       )
       .agg(
         // Calculation of average temperature over the window.
@@ -197,69 +213,33 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
       .select( // Selection and rename the relevant columns for the windowedStream DataFrame.
         col("window.start").alias("window_start"),
         col("window.end").alias("window_end"),
-        col("recommended_activity"),
         col("avg_Temperature (F)"),
         col("avg_% Humidity"),
         col("max_Pressure (Hg)"),
         col("max_Light Intensity")
       )
 
-    // Function to update CMS with activities
-    def updateCMS(activity: String): Unit = {
-      cms.add(activity)
-    }
 
-    // Create a streaming DataFrame from finalOutput1 for processing.
-    val processedStream1 = finalOutput1.writeStream
-      .outputMode("append") // Set the output mode to "append"
-      .format("console") // This just outputs the data to the console for debugging
-      .trigger(Trigger.ProcessingTime("60 seconds"))  // Set the trigger to process data every 60 seconds.
-      .start() // Start the streaming query.
-
-    // Function to write the DataFrame to MongoDB.
-    // Parameters- df, - epochId
-    def writeToMongoDB(df: DataFrame, epochId: Long): Unit = {
-      // MongoDB connection string and target database/collection.
-      val mongoURL = "mongodb://localhost:27017/WeatherRecommendation.Grouped Readings"
-       df.write  // Write the DataFrame to MongoDB
-         .format("mongo") // Specify the MongoDB format for writing.
-         .mode("append")// Append mode
-         .option("uri", mongoURL)// MongoDB connection URI.
-         .save()// Execute the write operation.
-       println(s"Batch $epochId written to MongoDB successfully.") // a confirmation message batch has been written.
-    }
-
-      // Output the processed data from the windowed stream to MongoDB.
-      // This uses a foreachBatch operation to handle each micro-batch of data.
-      val mongoOutput = windowedStream.writeStream
-        // Define a foreachBatch operation that processes each micro-batch of data.
-        .foreachBatch{(df: DataFrame, epochId: Long) =>
-            writeToMongoDB(df, epochId) } // Call the writeToMongoDB function
-        // Set the trigger for processing time to 60 seconds.
-          .trigger(Trigger.ProcessingTime("600 seconds"))
-          .start() // Start the streaming query
     // Create a streaming DataFrame from finalOutput1 for processing.
     // This stream will send data to a specified server in JSON format.
-    val  processedStream2 = finalOutput1.writeStream
+    val  processedStream1 = finalOutput1.writeStream
       .outputMode("append") //append mode
+      .format("console") // This just outputs the data to the console for debugging
       // Define a foreachBatch operation to process each micro-batch of data.
       .foreachBatch { (batchDF: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row], batchId: Long) =>
-        // Convert each row in the batch to a string
+          // Convert each row in the batch to a string
         val rowsAsString = batchDF.collect().map(_.mkString(", "))
         val resultString = rowsAsString.mkString("\n")// Combine all rows into a single string with each row on a new line.
-
         // Prepare JSON data by creating a ReceivedData object and converting it to JSON.
         val jsonData = ReceivedData(resultString).toJson.prettyPrint
         // Create an HTTP entity with the JSON data and specify the content type.
         val requestEntity = HttpEntity(ContentTypes.`application/json`, jsonData)
-
         // Send the JSON data as HTTP POST
         val request = HttpRequest(
           method = HttpMethods.POST,
           uri = mainServerUrl,//the specified URI
           entity = requestEntity//entity
         )
-
         // Send the HTTP request and handle the response asynchronously.
         Http().singleRequest(request).onComplete {
           case Success(response) =>
@@ -276,70 +256,94 @@ object KafkaConsumer  extends DefaultJsonProtocol{//DefaultJsonProtocol allows t
             // a message indicating the failure to send the batch, along with the exception message.
           println(s"Failed to send batch $batchId: ${ex.getMessage}")
         }
+        try {
+                   if (batchDF.isEmpty) {
+                      println(s"No data received in batch ID: $batchId")
+                    } else {
+                     println(s"Processing batch ID: $batchId with ${batchDF.count()} records.")
+                     println(s"Contents of batch ID: $batchId")
+                     batchDF.show(truncate = false) // Show the entire content of the batch
+                     // Collect activities and update the CMS
+                     val activities = batchDF.select("recommended_activity").collect().map(_.getString(0))
+                     activities.foreach { activity =>
+                       cms.add(activity) // Update the CMS for this activity
+                       val count = cms.count(activity) // Get the current count for this activity
+                       // Prepare the JSON data
+                       val activityData = ActivityCount(activity, count)
+                       val jsonData = activityData.toJson.prettyPrint // Convert to JSON string
+                       // Create an HTTP entity with the JSON data
+                       val requestEntity = HttpEntity(ContentTypes.`application/json`, jsonData)
+                       // Prepare the HTTP POST request
+                       val request = HttpRequest(
+                         method = HttpMethods.POST,
+                         uri = "http://localhost:8081/receive-data1", // Ensure this matches your server's endpoint
+                         entity = requestEntity
+                       )
+                       // Execute the HTTP request asynchronously
+                       val responseFuture = Http().singleRequest(request)
+                       // Handle the response
+                       responseFuture.onComplete {
+                         case Success(response) =>
+                           println(s"Successfully sent data for activity: $activity, response: ${response.status}")
+                         case Failure(exception) =>
+                           println(s"Failed to send data for activity: $activity, exception: ${exception.getMessage}")
+                       }
+                       // Logging the activity and its count
+                       println(s"Activity: '$activity' has occurred approximately $count times.")
+                     }
+                   }
+        }
+        catch
+        {
+    case e: Exception =>
+      println(s"Error processing batch ID: $batchId: ${e.getMessage}")
+      e.printStackTrace()
+  }
       }
       .trigger(Trigger.ProcessingTime("60 seconds"))         // Set the trigger for processing time to 60 seconds.
-      .start()// Start the streaming query
-    // Write the streaming DataFrame and update the CMS
-    val processedStream3 = finalOutput1.writeStream
-      .foreachBatch { (batchDF: DataFrame, batchId: Long) =>
-        try {
-          if (batchDF.isEmpty) {
-            println(s"No data received in batch ID: $batchId")
-          } else {
-            println(s"Processing batch ID: $batchId with ${batchDF.count()} records.")
-            println(s"Contents of batch ID: $batchId")
-            batchDF.show(truncate = false) // Show the entire content of the batch
+      .start()// Start the streaming
+    ///////////////////////////
+    val  processedStream2 = windowedStream.writeStream
+      .outputMode("append") //append mode
+      // Define a foreachBatch operation to process each micro-batch of data.
+      .foreachBatch { (batchDF: org.apache.spark.sql.Dataset[org.apache.spark.sql.Row], batchId: Long) =>
+         writeToMongoDB(batchDF, batchId)  //writeToMongoDB function to write on mongodb
 
-            // Collect activities and update the CMS
-            val activities = batchDF.select("recommended_activity").collect().map(_.getString(0))
+        // Convert each row in the batch to a string
+        val rowsAsString = batchDF.collect().map(_.mkString(", "))
+        val resultString = rowsAsString.mkString("\n")// Combine all rows into a single string with each row on a new line.
 
-            activities.foreach { activity =>
-              cms.add(activity) // Update the CMS for this activity
-              val count = cms.count(activity) // Get the current count for this activity
-
-              // Prepare the JSON data
-              val activityData = ActivityCount(activity, count)
-              val jsonData = activityData.toJson.prettyPrint // Convert to JSON string
-
-              // Create an HTTP entity with the JSON data
-              val requestEntity = HttpEntity(ContentTypes.`application/json`, jsonData)
-
-              // Prepare the HTTP POST request
-              val request = HttpRequest(
-                method = HttpMethods.POST,
-                uri = "http://localhost:8081/receive-data1", // Ensure this matches your server's endpoint
-                entity = requestEntity
-              )
-
-              // Execute the HTTP request asynchronously
-              val responseFuture = Http().singleRequest(request)
-
-              // Handle the response
-              responseFuture.onComplete {
-                case Success(response) =>
-                  println(s"Successfully sent data for activity: $activity, response: ${response.status}")
-                case Failure(exception) =>
-                  println(s"Failed to send data for activity: $activity, exception: ${exception.getMessage}")
+        // Prepare JSON data by creating a ReceivedData object and converting it to JSON.
+        val jsonData = ReceivedData(resultString).toJson.prettyPrint
+        // Create an HTTP entity with the JSON data and specify the content type.
+        val requestEntity = HttpEntity(ContentTypes.`application/json`, jsonData)
+        // Send the JSON data as HTTP POST
+        val request = HttpRequest(
+          method = HttpMethods.POST,
+          uri = "http://localhost:8081/receive-data2",//the specified URI
+          entity = requestEntity//entity
+        )
+        // Send the HTTP request and handle the response asynchronously.
+        Http().singleRequest(request).onComplete {
+          case Success(response) =>
+            // a message indicating the batch was sent successfully along with the response status.
+            println(s"Sent batch $batchId to server, response: ${response.status}")
+            // If the response was not successful, print the response body for debugging.
+            if (!response.status.isSuccess()) {
+              response.entity.dataBytes.runForeach { byteString =>
+                println(s"Response body: ${byteString.utf8String}")
               }
-
-              // Logging the activity and its count
-              println(s"Activity: '$activity' has occurred approximately $count times.")
             }
-          }
-        } catch {
-          case e: Exception =>
-            println(s"Error processing batch ID: $batchId: ${e.getMessage}")
-            e.printStackTrace()
+          // Handle the case where the HTTP request fails.
+          case Failure(ex) =>
+            // a message indicating the failure to send the batch, along with the exception message.
+            println(s"Failed to send batch $batchId: ${ex.getMessage}")
         }
-        System.out.flush()
       }
-      .trigger(Trigger.ProcessingTime("60 seconds"))
-      .start()
-    // Wait for termination of queries
-    processedStream1.awaitTermination()
-    mongoOutput.awaitTermination()
-    processedStream2.awaitTermination()
-    processedStream3.awaitTermination()
+      .trigger(Trigger.ProcessingTime("600 seconds"))         // Set the trigger for processing time to 60 seconds.
+      .start()// Start the streaming query
 
+    processedStream1.awaitTermination()
+    processedStream2.awaitTermination()
   }
 }
